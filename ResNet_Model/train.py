@@ -20,8 +20,8 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
-from Dataset import Dataset
-from Models import Test_Classifier
+from Dataset import *
+from Models import *
 
 parser = argparse.ArgumentParser(description='PyTorch ADNI Training')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -70,13 +70,7 @@ def main_worker(device, args):
     with open('../Data/preprocessed.json') as json_file:
         datapoints = json.load(json_file)
 
-    # random.shuffle(datapoints)
-    #
-    # train_data = datapoints[:int(.8*(len(datapoints)))]
-    # val_data = datapoints[len(train_data):int(.9*(len(datapoints)))]
-    # test_data = datapoints[len(train_data)+len(val_data):]
 
-    # split all datapoints into 3 by subject instead of individual images
     train_data, val_data, test_data = train_valid_test_split(datapoints, split_ratio=(0.8, 0.1, 0.1))
 
 
@@ -103,6 +97,7 @@ def main_worker(device, args):
 
     # create model
     model = Test_Classifier()
+    # model = simple_conv(dropout=0.3, inter_num_ch=16, img_dim=(64, 64, 64))
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
@@ -153,82 +148,6 @@ def main_worker(device, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
-
-
-def train_valid_test_split(datapoints, split_ratio=(0.8, 0.1, 0.1)):
-    """
-    split the datapoints list into 3 parts based on the subjects
-    :param datapoints: list of image info dictionary
-    :param split_ratio: (train, validation, test) ratio
-    :return: 3 lists of datapoints for train, validation, and test
-    """
-
-    # get the total number of subjects in the whole datapoints:
-
-    all_subjects = set()
-    for datapoint in datapoints:
-        all_subjects.add(datapoint['subject']) # put all subject code into a set
-
-    num_subjects = len(all_subjects)
-    # print(all_subjects)
-    # print(num_subjects)
-
-    num_train = int(split_ratio[0]*num_subjects) # in terms of subjects, not images
-    num_val = int(split_ratio[1]*num_subjects)
-
-
-
-    train_list, val_list, test_list = None, None, None
-
-    # loop through all datapoints to split:
-    all_subjects = set() # clear to count
-    for index, datapoint in enumerate(datapoints):
-        all_subjects.add(datapoint['subject'])
-
-        if len(all_subjects) == num_train: # enough for train
-            train_list = datapoints[:index+1] # every image till this one
-
-        elif len(all_subjects) == num_train + num_val: # enough for val:
-            val_list = datapoints[len(train_list):index+1]
-            test_list = datapoints[len(train_list) + len(val_list):]
-
-
-    # print(num_train, num_val)
-    # print(len(train_list), len(val_list), len(test_list))
-    # print(len(datapoints))
-
-
-    all_subjects_t = set()
-    for datapoint in train_list:
-        all_subjects_t.add(datapoint['subject'])  # put all subject code into a set
-
-    all_subjects_v = set()
-    for datapoint in val_list:
-        all_subjects_v.add(datapoint['subject'])  # put all subject code into a set
-
-    all_subjects_test = set()
-    for datapoint in test_list:
-        all_subjects_test.add(datapoint['subject'])  # put all subject code into a set
-
-    # print(len(all_subjects_t), len(all_subjects_v), len(all_subjects_test), len(all_subjects_t | all_subjects_v | all_subjects_test))
-    return (train_list, val_list, test_list)
-
-
-
-
-
-
-def generate(datapoints):
-    IDs = []
-    labels = {}
-    for datapoint in datapoints:
-        IDs.append(datapoint['id'])
-        if (datapoint['result'] == 'Normal'):
-            labels[datapoint['id']] = 0
-        else:
-            labels[datapoint['id']] = 1
-
-    return IDs, labels
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, device):
@@ -315,6 +234,13 @@ def validate(val_loader, model, criterion, args, device):
     return acc.avg
 
 
+def adjust_learning_rate(optimizer, epoch, args):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = args.lr * (0.1 ** (epoch // 30))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     filename = str(state['epoch']) + filename
     torch.save(state, os.path.join('Models/',filename))
@@ -361,13 +287,6 @@ class ProgressMeter(object):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
-
-
-def adjust_learning_rate(optimizer, epoch, args):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
 
 
 if __name__ == '__main__':
