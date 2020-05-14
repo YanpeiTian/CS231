@@ -13,9 +13,6 @@ class Test_Classifier(nn.Module):
         x = self.classifier(x)
         return x
 
-
-
-
 class simple_conv(nn.Module):
     def __init__(self,dropout=0.3, inter_num_ch = 16, img_dim = (64, 64, 64)):
         super(simple_conv, self).__init__()

@@ -21,7 +21,8 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from Dataset import *
-from Models import *
+from Simple_Models import *
+from ResNet_Model import *
 
 parser = argparse.ArgumentParser(description='PyTorch ADNI Training')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -35,14 +36,14 @@ parser.add_argument('-b', '--batch-size', default=16, type=int,
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=100, type=int,
+parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('-s', '--save-freq', default=10, type=int,
                     metavar='N', help='save frequency (default: 10)')
@@ -96,7 +97,8 @@ def main_worker(device, args):
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    model = Test_Classifier()
+    # model = Test_Classifier()
+    model = resnet18()
     # model = simple_conv(dropout=0.3, inter_num_ch=16, img_dim=(64, 64, 64))
     model = model.to(device)
 
