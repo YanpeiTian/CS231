@@ -1,1 +1,5 @@
-
+.DS_Store
+/ResNet_Model/Models/
+__pycache__
+/Data/img_64_longitudinal/
+/Data/training_data/
