@@ -21,7 +21,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 
 from Dataset import Dataset
-from Models import Test_Classifier
+from Models import *
 
 parser = argparse.ArgumentParser(description='PyTorch ADNI Training')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -102,7 +102,10 @@ def main_worker(device, args):
         num_workers=args.workers, pin_memory=True)
 
     # create model
-    model = Test_Classifier()
+    # model = Test_Classifier()
+    model = simple_conv(dropout=0.3, inter_num_ch=16, img_dim=(64, 64, 64))
+
+
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
