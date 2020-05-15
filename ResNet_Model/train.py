@@ -36,7 +36,7 @@ parser.add_argument('-b', '--batch-size', default=16, type=int,
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
@@ -45,7 +45,7 @@ parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('-s', '--save-freq', default=10, type=int,
+parser.add_argument('-s', '--save-freq', default=5, type=int,
                     metavar='N', help='save frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -71,9 +71,7 @@ def main_worker(device, args):
     with open('../Data/preprocessed.json') as json_file:
         datapoints = json.load(json_file)
 
-
     train_data, val_data, test_data = train_valid_test_split(datapoints, split_ratio=(0.8, 0.1, 0.1))
-
 
     train_IDs, train_labels = generate(train_data)
     val_IDs, val_labels = generate(val_data)
@@ -237,8 +235,8 @@ def validate(val_loader, model, criterion, args, device):
 
 
 def adjust_learning_rate(optimizer, epoch, args):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
+    """Sets the learning rate to the initial LR decayed by 10 every 10 epochs"""
+    lr = args.lr * (0.1 ** (epoch // 10))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
