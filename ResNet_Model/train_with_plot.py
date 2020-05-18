@@ -2,9 +2,9 @@
 This training file plot training accuracy, losses, and valid acc in Models/train_plot.png
 
 This training file used adam as optimizer,
-weight scheduler decay step size by 10 every 10 epoch,
+weight scheduler decay step size by 10 every 15 epoch,
 
-default train epochs is 40
+default train epochs is 50
 default lr is 5e-4
 default weight decay is 1 e-4
 default train model is simple_conv
@@ -40,7 +40,7 @@ from ResNet_Model import *
 parser = argparse.ArgumentParser(description='PyTorch ADNI Training')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=40, type=int, metavar='N',
+parser.add_argument('--epochs', default=50, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -111,7 +111,7 @@ def main_worker(device, args):
     # create model
     # model = Test_Classifier()
     # model = resnet18(dropout = 0.2)
-    model = simple_conv(dropout=0.3, inter_num_ch=8, img_dim=(64, 64, 64))
+    model = simple_conv(dropout=0.5, inter_num_ch=8, img_dim=(64, 64, 64))
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
@@ -263,7 +263,7 @@ def validate(val_loader, model, criterion, args, device):
 
 def adjust_learning_rate(optimizer, epoch, args):
     """Sets the learning rate to the initial LR decayed by 10 every 10 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 10))
+    lr = args.lr * (0.1 ** (epoch // 15))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 

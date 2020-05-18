@@ -45,7 +45,9 @@ class simple_conv(nn.Module):
                         nn.ReLU(),
                         nn.MaxPool3d(2))
 
-        self.fc1 = nn.Linear(2*inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16), 2)
+        self.fc1 = nn.Linear(2*inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16), inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16))
+        self.fc2 = nn.Linear(inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16), inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16)//2)
+        self.fc3 = nn.Linear(inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16)//2, 2)
 
 
     def forward(self, x):
@@ -61,4 +63,6 @@ class simple_conv(nn.Module):
         conv4 = conv4.view((N, -1))
 
         fc1 = self.fc1(conv4)
-        return fc1
+        fc2 = self.fc2(fc1)
+        fc3 = self.fc3(fc2)
+        return fc3
