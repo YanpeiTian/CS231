@@ -1,15 +1,3 @@
-"""
-This training file plot training accuracy, losses, and valid acc in Models/train_plot.png
-
-This training file used adam as optimizer,
-weight scheduler decay step size by 10 every 15 epoch,
-
-default train epochs is 50
-default lr is 5e-4
-default weight decay is 1 e-4
-default train model is simple_conv
-"""
-
 import argparse
 import os
 import random
@@ -18,6 +6,12 @@ import time
 import warnings
 import json
 import random
+import sklearn.metrics
+import numpy as np
+
+import matplotlib
+matplotlib.use('PS')
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -31,7 +25,6 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-import matplotlib.pyplot as plt
 
 from Dataset import *
 from Simple_Models import *
@@ -68,6 +61,9 @@ parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float,
 
 best_acc1 = 0
 
+AUG_FACTOR = 4
+AUG_STRENGTH = 1
+
 def main():
     args = parser.parse_args()
 
@@ -85,33 +81,35 @@ def main_worker(device, args):
     with open('../Data/preprocessed.json') as json_file:
         datapoints = json.load(json_file)
 
-    train_data, val_data, test_data = train_valid_test_split(datapoints, split_ratio=(0.8, 0.1, 0.1))
+    # train_data, val_data, test_data = train_valid_test_split(datapoints, split_ratio=(0.8, 0.2, 0))
+
+    train_data, val_data = balanced_data_split(datapoints)
 
     train_IDs, train_labels = generate(train_data)
     val_IDs, val_labels = generate(val_data)
-    test_IDs, test_labels = generate(test_data)
+    # test_IDs, test_labels = generate(test_data)
 
     # Data loading code
-    train_dataset = Dataset(train_IDs, train_labels)
+    train_dataset = Dataset(train_IDs, train_labels, aug_factor=AUG_FACTOR, aug_strength=AUG_STRENGTH)
     val_dataset = Dataset(val_IDs, val_labels)
-    test_dataset = Dataset(test_IDs, test_labels)
+    # test_dataset = Dataset(test_IDs, test_labels)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False,
+        val_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
 
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    # test_loader = torch.utils.data.DataLoader(
+    #     test_dataset, batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True)
 
     # create model
     # model = Test_Classifier()
-    # model = resnet18(dropout = 0.2)
-    model = simple_conv(dropout=0.4, inter_num_ch=10, img_dim=(64, 64, 64))
+    # model = resnet18(dropout = 0.5)
+    model = simple_conv(dropout=0.4, inter_num_ch=8, img_dim=(64, 64, 64))
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
@@ -120,8 +118,8 @@ def main_worker(device, args):
     # optimizer = torch.optim.SGD(model.parameters(), args.lr,
     #                             momentum=args.momentum,
     #                             weight_decay=args.weight_decay)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.weight_decay, amsgrad=False)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08,
+                                 weight_decay=args.weight_decay, amsgrad=False)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -138,28 +136,24 @@ def main_worker(device, args):
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     # Testing
-    if args.evaluate:
-        validate(test_loader, model, criterion, args, device)
-        return
+    # if args.evaluate:
+    #     validate(test_loader, model, criterion, args, device)
+    #     return
 
     # Training Loop
-    losses, train_accs, valid_accs = [], [], []
+    losses, train_accs, valid_accs, f1s = [], [], [], []
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        avg_loss, avg_train_acc = train(train_loader, model, criterion, optimizer, epoch, args, device)
-        losses.append(avg_loss)
-        train_accs.append(avg_train_acc)
+        loss, train_acc = train(train_loader, model, criterion, optimizer, epoch, args, device)
+        losses.append(loss)
+        train_accs.append(train_acc)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args, device)
+        acc1, f1 = validate(val_loader, model, criterion, args, device)
         valid_accs.append(acc1)
-
-        # plot the losses, train_accs, valid_accs:
-        plot_path = os.path.join('Models', 'train_plot')
-        plot_results(losses, train_accs, valid_accs, plot_path)
-
+        f1s.append(f1)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -173,6 +167,8 @@ def main_worker(device, args):
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
+
+    plot_results(losses, train_accs, valid_accs, f1s, 'train_plots.png')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, device):
@@ -193,6 +189,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args, device):
 
         # measure data loading time
         data_time.update(time.time() - end)
+
+        if (AUG_FACTOR>0):
+            images = images.reshape((-1,64,64,64))
+            target = target.flatten()
+
+            ind = torch.randperm(target.shape[0])
+            images = images[ind,:,:,:]
+            target = target[ind]
+
 
         images = images.to(device)
         target = target.to(device)
@@ -218,7 +223,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, device):
         if i % args.print_freq == 0:
             progress.display(i)
 
-    return (losses.avg, acc.avg) # return the average of loss and acc for this epoch
+    return losses.avg, acc.avg
 
 
 def validate(val_loader, model, criterion, args, device):
@@ -232,6 +237,9 @@ def validate(val_loader, model, criterion, args, device):
 
     # switch to evaluate mode
     model.eval()
+
+    targets = []
+    preds = []
 
     with torch.no_grad():
         end = time.time()
@@ -248,6 +256,9 @@ def validate(val_loader, model, criterion, args, device):
             losses.update(loss.item(), images.size(0))
             acc.update(acc0, images.size(0))
 
+            targets += target.tolist()
+            preds += torch.argmax(output, dim=1).tolist()
+
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
@@ -256,13 +267,16 @@ def validate(val_loader, model, criterion, args, device):
             #     progress.display(i)
 
         # TODO: this should also be done with the ProgressMeter
-        print('Validation accuracy is: '+str(acc.avg))
 
-    return acc.avg
+        F1 = sklearn.metrics.f1_score(targets, preds)
+        print('Validation accuracy is: '+str(acc.avg))
+        print('Validation F1 score is: '+str(F1))
+
+    return acc.avg, F1
 
 
 def adjust_learning_rate(optimizer, epoch, args):
-    """Sets the learning rate to the initial LR decayed by 10 every 10 epochs"""
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     lr = args.lr * (0.1 ** (epoch // 15))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
@@ -273,6 +287,24 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, os.path.join('Models/',filename))
     if is_best:
         shutil.copyfile(os.path.join('Models/',filename), 'model_best.pth.tar')
+
+
+def plot_results(losses, train_accs, valid_accs, f1s, path):
+
+    xs = range(len(losses))
+
+    plt.figure()
+    plt.plot(xs, losses, label = "loss")
+    plt.plot(xs, train_accs, label="training accuracy")
+    plt.plot(xs, valid_accs, label="validation accuracy")
+    plt.plot(xs, f1s, label="validation F1 score")
+
+    plt.ylabel("value")
+    plt.xlabel('epochs')
+    plt.title("loss, training accuracy, and validation accuracy Vs. num of epochs")
+    plt.legend()
+
+    plt.savefig(path)
 
 
 class AverageMeter(object):
@@ -314,23 +346,6 @@ class ProgressMeter(object):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
-
-
-def plot_results(losses, train_accs, valid_accs, path):
-
-    xs = range(len(losses))
-
-    plt.figure()
-    plt.plot(xs, losses, label = "loss")
-    plt.plot(xs, train_accs, label="training accuracy")
-    plt.plot(xs, valid_accs, label="validation accuracy")
-
-    plt.ylabel("value")
-    plt.xlabel('epochs')
-    plt.title("loss, training accuracy, and validation accuracy Vs. num of epochs")
-    plt.legend()
-
-    plt.savefig(path)
 
 
 if __name__ == '__main__':
