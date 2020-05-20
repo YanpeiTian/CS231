@@ -27,6 +27,7 @@ class Dataset(data.Dataset):
 
         # Load data and get label
         X = torch.load('../Data/training_data/' + ID + '.pt')
+
         y = self.labels[ID]
 
         # Data augmentation for training set

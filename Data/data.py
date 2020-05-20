@@ -97,5 +97,5 @@ def load():
 
 
 if __name__ == '__main__':
-    main()
-    # load()
+    # main()
+    load()
