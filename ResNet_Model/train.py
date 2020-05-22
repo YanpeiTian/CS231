@@ -109,6 +109,7 @@ def main_worker(device, args):
     # create model
 
     model = simple_conv(dropout=0.1, inter_num_ch=16, img_dim=(64, 64, 64))
+    model = Test_Classifier()
     for param in model.parameters():
         if len(param.shape)>1:
             nn.init.xavier_normal_(param.data)
@@ -299,6 +300,7 @@ def plot_results(losses, train_accs, valid_accs, f1s, path):
     plt.plot(xs, train_accs, label="training accuracy")
     plt.plot(xs, valid_accs, label="validation accuracy")
     plt.plot(xs, f1s, label="validation F1 score")
+    plt.ylim(-0.1, 1.1)
 
     plt.ylabel("value")
     plt.xlabel('epochs')
