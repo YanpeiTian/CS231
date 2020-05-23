@@ -107,7 +107,7 @@ def main_worker(device, args):
 
     # create model
 
-    model = sequence_model(dropout=0.1, inter_num_ch=16, img_dim=(64, 64, 64))
+    model = sequence_model(dropout=0, inter_num_ch=16, img_dim=(64, 64, 64))
     for param in model.parameters():
         if len(param.shape)>1:
             nn.init.xavier_normal_(param.data)
@@ -217,7 +217,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args, device):
         # consistency_loss = calculate_consistency_loss(output, target, mask)
 
         # measure accuracy and record loss
-        acc0 = torch.sum(torch.argmax(scores, dim=1) == target).item() / images.size(0)
+        # acc0 = torch.sum(torch.argmax(scores, dim=1) == target).item() / images.size(0)
+        acc0 = calculate_acc(output, target, mask)
         losses.update(loss.item(), images.size(0))
         acc.update(acc0, images.size(0))
 
@@ -270,7 +271,8 @@ def validate(val_loader, model, criterion, args, device):
             loss = criterion(scores, target)
 
             # measure accuracy and record loss
-            acc0 = torch.sum(torch.argmax(scores, dim=1) == target).item() / images.size(0)
+            # acc0 = torch.sum(torch.argmax(scores, dim=1) == target).item() / images.size(0)
+            acc0 = calculate_acc(output, target, mask)
             losses.update(loss.item(), images.size(0))
             acc.update(acc0, images.size(0))
 
@@ -307,6 +309,13 @@ def calculate_label_loss(output, target, mask, criterion):
 
     return loss / output.shape[0]
 
+def calculate_acc(output, target, mask):
+    acc = 0.0
+    for i in range(output.shape[0]):
+        acc += torch.sum(torch.argmax(output[i,:mask[i],:], dim=1) == target[i]).item() / mask[i].item()
+
+    return acc / output.shape[0]
+
 def adjust_learning_rate(optimizer, epoch, args):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
     lr = args.lr * (0.1 ** (epoch // 20))
@@ -329,7 +338,7 @@ def plot_results(losses, train_accs, valid_accs, f1s, path):
     plt.plot(xs, losses, label = "loss")
     plt.plot(xs, train_accs, label="training accuracy")
     plt.plot(xs, valid_accs, label="validation accuracy")
-    plt.plot(xs, f1s, label="validation F1 score")
+    # plt.plot(xs, f1s, label="validation F1 score")
     plt.ylim((-0.1, 1.1))
 
     plt.ylabel("value")
