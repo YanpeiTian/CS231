@@ -56,7 +56,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
+parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 
 best_acc1 = 0
@@ -113,7 +113,7 @@ def main_worker(device, args):
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion = nn.CrossEntropyLoss(reduction='sum').to(device) # changed the loss reduction method to sum
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr,
                                 weight_decay=args.weight_decay)
@@ -165,7 +165,7 @@ def main_worker(device, args):
                 'optimizer' : optimizer.state_dict(),
             }, is_best)
 
-    plot_results(losses, train_accs, valid_accs, f1s, 'train_curve.png')
+        plot_results(losses, train_accs, valid_accs, f1s, 'train_curves.png')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args, device):
@@ -299,10 +299,12 @@ def validate(val_loader, model, criterion, args, device):
 #     return consistency_loss
 def calculate_label_loss(output, target, mask, criterion):
     loss = 0.0
+    num_valid_images = 0
     for i in range(output.shape[0]):
-        loss += criterion(output[i,:mask[i],:], torch.tensor([target[i].item()] * mask[i]))
+        loss += criterion(output[i,:mask[i],:], torch.tensor([target[i].item()] * mask[i])) # loss here is the sum not mean
+        num_valid_images += mask[i]
 
-    return loss / output.shape[0]
+    return loss / num_valid_images # get the average loss
 
 def calculate_acc(output, target, mask):
     acc = 0.0
@@ -312,8 +314,8 @@ def calculate_acc(output, target, mask):
     return acc / output.shape[0]
 
 def adjust_learning_rate(optimizer, epoch, args):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 20))
+    """Sets the learning rate to the initial LR decayed by 10 every 15 epochs"""
+    lr = args.lr * (0.1 ** (epoch // 15))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
