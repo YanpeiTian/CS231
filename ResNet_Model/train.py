@@ -109,7 +109,7 @@ def main_worker(device, args):
     # create model
 
     model = simple_conv(dropout=0.1, inter_num_ch=16, img_dim=(64, 64, 64))
-    model = Test_Classifier()
+    # model = Test_Classifier()
     for param in model.parameters():
         if len(param.shape)>1:
             nn.init.xavier_normal_(param.data)

@@ -56,7 +56,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
-parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 
 best_acc1 = 0
@@ -106,10 +106,8 @@ def main_worker(device, args):
 
     # create model
 
-
-    model = cnn_rnn(cnn_dropout=0.4, inter_num_ch = 10, img_dim = (64, 64, 64), feature_size = 128, lstm_hidden_size = 16, rnn_dropout = 0.4, num_class = 2)
-
-
+    model = cnn_rnn(cnn_dropout=0.2, inter_num_ch = 10, img_dim = (64, 64, 64), feature_size = 128, lstm_hidden_size = 16, rnn_dropout = 0.2, num_class = 2)
+    # model = Test_Classifier()
     model = model.to(device)
 
     # define loss function (criterion) and optimizer
@@ -198,7 +196,6 @@ def train(train_loader, model, criterion, optimizer, epoch, args, device):
             ind = torch.randperm(target.shape[0])
             images = images[ind,:,:,:]
             target = target[ind]
-
 
         images = images.to(device)
         target = target.to(device)
@@ -315,7 +312,7 @@ def calculate_acc(output, target, mask):
 
 def adjust_learning_rate(optimizer, epoch, args):
     """Sets the learning rate to the initial LR decayed by 10 every 15 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 15))
+    lr = args.lr * (0.1 ** (epoch // 20))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -335,7 +332,7 @@ def plot_results(losses, train_accs, valid_accs, f1s, path):
     plt.plot(xs, losses, label = "loss")
     plt.plot(xs, train_accs, label="training accuracy")
     plt.plot(xs, valid_accs, label="validation accuracy")
-    # plt.plot(xs, f1s, label="validation F1 score")
+    plt.plot(xs, f1s, label="validation F1 score")
     plt.ylim((-0.1, 1.1))
 
     plt.ylabel("value")

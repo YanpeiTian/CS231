@@ -2,6 +2,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+class Test_Classifier(nn.Module):
+    def __init__(self):
+        super(Test_Classifier, self).__init__()
+        self.classifier = nn.Linear(64*64*64, 2)
+
+    def forward(self, x):
+        shape = x.shape
+        x = x.reshape((shape[0], shape[1] , 64*64*64))
+        x = self.classifier(x)
+        return x
 
 """
 CNN for feature extraction
@@ -13,31 +23,27 @@ class simple_conv(nn.Module):
 
 
         self.conv1 = nn.Sequential(
-                        nn.Conv3d(1, inter_num_ch, kernel_size=3, padding=1),
+                        nn.Conv3d(1, inter_num_ch, kernel_size=3, padding=1, stride=2),
                         nn.BatchNorm3d(inter_num_ch),
                         nn.ReLU(),
-                        nn.MaxPool3d(2),
                         nn.Dropout3d(dropout))
 
         self.conv2 = nn.Sequential(
-                        nn.Conv3d(inter_num_ch, 2*inter_num_ch, kernel_size=3, padding=1),
+                        nn.Conv3d(inter_num_ch, 2*inter_num_ch, kernel_size=3, padding=1, stride=2),
                         nn.BatchNorm3d(2 * inter_num_ch),
                         nn.ReLU(),
-                        nn.MaxPool3d(2),
                         nn.Dropout3d(dropout))
 
         self.conv3 = nn.Sequential(
-                        nn.Conv3d(2*inter_num_ch, 4*inter_num_ch, kernel_size=3, padding=1),
+                        nn.Conv3d(2*inter_num_ch, 4*inter_num_ch, kernel_size=3, padding=1, stride=2),
                         nn.BatchNorm3d(4 * inter_num_ch),
                         nn.ReLU(),
-                        nn.MaxPool3d(2),
                         nn.Dropout3d(dropout))
 
         self.conv4 = nn.Sequential(
-                        nn.Conv3d(4*inter_num_ch, 2*inter_num_ch, kernel_size=3, padding=1),
+                        nn.Conv3d(4*inter_num_ch, 2*inter_num_ch, kernel_size=3, padding=1, stride=2),
                         nn.BatchNorm3d(2 * inter_num_ch),
-                        nn.ReLU(),
-                        nn.MaxPool3d(2))
+                        nn.ReLU())
 
         self.fc = nn.Linear(2 * inter_num_ch*(img_dim[0]//16)*(img_dim[1]//16)*(img_dim[2]//16), feature_dim) # output a 128 vector
 
@@ -72,6 +78,7 @@ class cnn_rnn(nn.Module):
                             batch_first=True, dropout=rnn_dropout)
 
         self.fc = nn.Linear(lstm_hidden_size, num_class)
+        # self.fc = nn.Linear(128, num_class)
 
 
         # initialization for lstm
@@ -85,6 +92,7 @@ class cnn_rnn(nn.Module):
 
 
     def forward(self, x):
+
         # x shape: (N,T,64,64,64)
         N, T, H, W, D = x.shape
 
@@ -93,14 +101,12 @@ class cnn_rnn(nn.Module):
 
         # extract features:
         features = self.feature_extractor(x) # (N*T,128)
+
         features = features.view(N, T, -1) # (N, T, 128)
 
         output, _ = self.lstm(features) # (N, T, hidden_size)
-
 
         # convert to be num_classes:
         scores = self.fc(output) # (N, T, 2)
 
         return scores
-
-

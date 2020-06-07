@@ -162,4 +162,4 @@ def balanced_data_split(datapoints, split_ratio=(0.8, 0.2)):
                 summary[subject] = []
             summary[subject].append({"file": datapoint['id'], "age": datapoint['age']})
 
-    return train_set, train_label, val_set, val_label, summary
+    return train_list, train_label, val_list, val_label, summary
